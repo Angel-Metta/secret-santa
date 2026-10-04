@@ -4,9 +4,7 @@ import random
 import string
 
 
-
 # PAGE CONFIGURATION
-
 
 st.set_page_config(
     page_title="Secret Santa 2026",
@@ -15,9 +13,7 @@ st.set_page_config(
 )
 
 
-
 # DATABASE
-
 
 DB_NAME = "secret_santa.db"
 
@@ -48,16 +44,12 @@ def create_table():
 create_table()
 
 
-
 # ORGANIZER PASSWORD
-
 
 ORGANIZER_PASSWORD = st.secrets["ORGANIZER_PASSWORD"]
 
 
-
 # GENERATE UNIQUE CODE
-
 
 def generate_code():
 
@@ -85,9 +77,7 @@ def generate_code():
             return code
 
 
-
 # GET ALL PARTICIPANTS
-
 
 def get_all_participants():
 
@@ -107,9 +97,7 @@ def get_all_participants():
     return participants
 
 
-
 # GET ONE PARTICIPANT
-
 
 def get_participant(code):
 
@@ -129,9 +117,7 @@ def get_participant(code):
     return participant
 
 
-
 # MARK PARTICIPANT AS REVEALED
-
 
 def mark_revealed(code):
 
@@ -148,26 +134,24 @@ def mark_revealed(code):
     conn.close()
 
 
-
 # GENERATE SECRET SANTA ASSIGNMENTS
-
 
 def generate_assignments(names):
 
     if len(names) < 2:
         return None
 
-    for _ in range(1000):
+    for _ in range(5000):
 
         shuffled = names.copy()
 
         random.shuffle(shuffled)
 
-        # Nobody can get themselves
         if all(
             names[i] != shuffled[i]
             for i in range(len(names))
         ):
+
             assignments = {}
 
             for i in range(len(names)):
@@ -178,9 +162,7 @@ def generate_assignments(names):
     return None
 
 
-
 # SAVE / REGENERATE ENTIRE RAFFLE
-
 
 def save_raffle(names):
 
@@ -192,7 +174,6 @@ def save_raffle(names):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Save existing participant codes
     cursor.execute(
         "SELECT name, code FROM participants"
     )
@@ -202,12 +183,10 @@ def save_raffle(names):
         for row in cursor.fetchall()
     }
 
-    # Delete old assignments
     cursor.execute(
         "DELETE FROM participants"
     )
 
-    # Create new assignments
     for name in names:
 
         if name in existing_codes:
@@ -253,32 +232,24 @@ def reshuffle_unrevealed():
         if row[4] == 0
     ]
 
-    # Need at least two unrevealed people
     if len(unrevealed) < 2:
         return False
 
-    # Recipients already assigned to revealed people
-    # cannot be changed.
     used_recipients = {
         row[3]
         for row in revealed
     }
 
-    # The available recipients are unrevealed people
-    # who are not already assigned to someone revealed.
     available_recipients = [
         row[1]
-        for row in unrevealed
+        for row in participants
         if row[1] not in used_recipients
     ]
 
-    # We need the same number of available recipients
-    # as unrevealed participants.
     if len(available_recipients) != len(unrevealed):
         return False
 
-    # Try many random arrangements
-    for _ in range(1000):
+    for _ in range(5000):
 
         shuffled = available_recipients.copy()
 
@@ -286,7 +257,6 @@ def reshuffle_unrevealed():
 
         valid = True
 
-        # Nobody can get themselves
         for i in range(len(unrevealed)):
 
             person = unrevealed[i][1]
@@ -311,6 +281,7 @@ def reshuffle_unrevealed():
                     UPDATE participants
                     SET recipient = ?
                     WHERE name = ?
+                    AND revealed = 0
                 """, (
                     recipient,
                     person
@@ -324,9 +295,7 @@ def reshuffle_unrevealed():
     return False
 
 
-
 # DELETE ENTIRE RAFFLE
-
 
 def delete_raffle():
 
@@ -341,9 +310,7 @@ def delete_raffle():
     conn.close()
 
 
-
 # SESSION STATE
-
 
 if "organizer_logged_in" not in st.session_state:
 
@@ -355,7 +322,6 @@ if "pending_change" not in st.session_state:
     st.session_state.pending_change = None
 
 
-
 # TITLE
 
 st.title("🎄 Secret Santa 2026")
@@ -365,9 +331,7 @@ st.write(
 )
 
 
-
 # ORGANIZER LOGIN
-
 
 with st.sidebar:
 
@@ -411,9 +375,7 @@ with st.sidebar:
             st.rerun()
 
 
-
 # PARTICIPANT REVEAL
-
 
 st.header("🎁 Find Your Secret Santa")
 
@@ -472,7 +434,6 @@ if st.button("Reveal My Secret Santa"):
 
 # ORGANIZER DASHBOARD
 
-
 if st.session_state.organizer_logged_in:
 
     st.divider()
@@ -480,9 +441,7 @@ if st.session_state.organizer_logged_in:
     st.header("🎅 Organizer Dashboard")
 
 
-    
     # ADD PARTICIPANTS
-    
 
     st.subheader("➕ Add Participants")
 
@@ -506,7 +465,6 @@ if st.session_state.organizer_logged_in:
             for row in participants
         ]
 
-        # Remove duplicates
         names_to_add = [
             name
             for name in new_names
@@ -571,9 +529,7 @@ if st.session_state.organizer_logged_in:
                     st.rerun()
 
 
-    
     # ADD WARNING
-    
 
     if (
         st.session_state.pending_change
@@ -646,9 +602,7 @@ if st.session_state.organizer_logged_in:
                 st.rerun()
 
 
-    
     # CURRENT PARTICIPANTS
-    
 
     st.subheader(
         "👥 Current Participants"
@@ -743,7 +697,6 @@ if st.session_state.organizer_logged_in:
 
     # REMOVE WARNING
 
-
     if (
         st.session_state.pending_change
         and
@@ -832,9 +785,7 @@ if st.session_state.organizer_logged_in:
                 st.rerun()
 
 
-    
     # RAFFLE STATUS
-    
 
     st.divider()
 
@@ -870,9 +821,7 @@ if st.session_state.organizer_logged_in:
         )
 
 
-    
     # WHO HAS WHO
-    
 
     st.divider()
 
@@ -919,9 +868,7 @@ if st.session_state.organizer_logged_in:
         )
 
 
-    
     # RESHUFFLE RAFFLE
-    
 
     st.divider()
 
@@ -932,10 +879,6 @@ if st.session_state.organizer_logged_in:
     participants = get_all_participants()
 
     if participants:
-
-        
-        # RESHUFFLE EVERYONE
-        
 
         st.write(
             "### 🎲 Reshuffle Everyone"
@@ -978,10 +921,6 @@ if st.session_state.organizer_logged_in:
                     "Could not reshuffle the raffle."
                 )
 
-
-        
-        # RESHUFFLE UNREVEALED ONLY
-        
 
         st.write(
             "### 🔒 Reshuffle Unrevealed Only"
@@ -1030,9 +969,7 @@ if st.session_state.organizer_logged_in:
         )
 
 
-    
     # RESET ENTIRE RAFFLE
-    
 
     st.divider()
 
