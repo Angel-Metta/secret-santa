@@ -5,13 +5,15 @@ import string
 
 
 
-# PAGE CONFIGURATIOn
+# PAGE CONFIGURATION
+
 
 st.set_page_config(
     page_title="Secret Santa 2026",
     page_icon="🎄",
     layout="centered"
 )
+
 
 
 # DATABASE
@@ -25,6 +27,7 @@ def get_connection():
 
 
 def create_table():
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -43,6 +46,7 @@ def create_table():
 
 
 create_table()
+
 
 
 # ORGANIZER PASSWORD
@@ -125,6 +129,7 @@ def get_participant(code):
     return participant
 
 
+
 # MARK PARTICIPANT AS REVEALED
 
 
@@ -146,14 +151,15 @@ def mark_revealed(code):
 
 # GENERATE SECRET SANTA ASSIGNMENTS
 
+
 def generate_assignments(names):
 
     if len(names) < 2:
         return None
 
-    shuffled = names.copy()
+    for _ in range(1000):
 
-    while True:
+        shuffled = names.copy()
 
         random.shuffle(shuffled)
 
@@ -162,18 +168,18 @@ def generate_assignments(names):
             names[i] != shuffled[i]
             for i in range(len(names))
         ):
-            break
+            assignments = {}
 
-    assignments = {}
+            for i in range(len(names)):
+                assignments[names[i]] = shuffled[i]
 
-    for i in range(len(names)):
-        assignments[names[i]] = shuffled[i]
+            return assignments
 
-    return assignments
-
+    return None
 
 
-# SAVE / REGENERATE RAFFLE
+
+# SAVE / REGENERATE ENTIRE RAFFLE
 
 
 def save_raffle(names):
@@ -196,7 +202,7 @@ def save_raffle(names):
         for row in cursor.fetchall()
     }
 
-    # Remove old assignments
+    # Delete old assignments
     cursor.execute(
         "DELETE FROM participants"
     )
@@ -228,6 +234,96 @@ def save_raffle(names):
     return True
 
 
+# RESHUFFLE ONLY UNREVEALED PARTICIPANTS
+
+def reshuffle_unrevealed():
+
+    participants = get_all_participants()
+
+    if len(participants) < 2:
+        return False
+
+    revealed = [
+        row for row in participants
+        if row[4] == 1
+    ]
+
+    unrevealed = [
+        row for row in participants
+        if row[4] == 0
+    ]
+
+    # Need at least two unrevealed people
+    if len(unrevealed) < 2:
+        return False
+
+    # Recipients already assigned to revealed people
+    # cannot be changed.
+    used_recipients = {
+        row[3]
+        for row in revealed
+    }
+
+    # The available recipients are unrevealed people
+    # who are not already assigned to someone revealed.
+    available_recipients = [
+        row[1]
+        for row in unrevealed
+        if row[1] not in used_recipients
+    ]
+
+    # We need the same number of available recipients
+    # as unrevealed participants.
+    if len(available_recipients) != len(unrevealed):
+        return False
+
+    # Try many random arrangements
+    for _ in range(1000):
+
+        shuffled = available_recipients.copy()
+
+        random.shuffle(shuffled)
+
+        valid = True
+
+        # Nobody can get themselves
+        for i in range(len(unrevealed)):
+
+            person = unrevealed[i][1]
+            recipient = shuffled[i]
+
+            if person == recipient:
+
+                valid = False
+                break
+
+        if valid:
+
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            for i in range(len(unrevealed)):
+
+                person = unrevealed[i][1]
+                recipient = shuffled[i]
+
+                cursor.execute("""
+                    UPDATE participants
+                    SET recipient = ?
+                    WHERE name = ?
+                """, (
+                    recipient,
+                    person
+                ))
+
+            conn.commit()
+            conn.close()
+
+            return True
+
+    return False
+
+
 
 # DELETE ENTIRE RAFFLE
 
@@ -250,16 +346,17 @@ def delete_raffle():
 
 
 if "organizer_logged_in" not in st.session_state:
+
     st.session_state.organizer_logged_in = False
 
 
 if "pending_change" not in st.session_state:
+
     st.session_state.pending_change = None
 
 
 
 # TITLE
-
 
 st.title("🎄 Secret Santa 2026")
 
@@ -268,9 +365,9 @@ st.write(
 )
 
 
-# ==========================================
+
 # ORGANIZER LOGIN
-# ==========================================
+
 
 with st.sidebar:
 
@@ -354,7 +451,6 @@ if st.button("Reveal My Secret Santa"):
                 revealed
             ) = participant
 
-            # Record that the person revealed
             mark_revealed(code)
 
             st.success(
@@ -374,9 +470,8 @@ if st.button("Reveal My Secret Santa"):
             )
 
 
-# ==========================================
 # ORGANIZER DASHBOARD
-# ==========================================
+
 
 if st.session_state.organizer_logged_in:
 
@@ -385,9 +480,9 @@ if st.session_state.organizer_logged_in:
     st.header("🎅 Organizer Dashboard")
 
 
-    # ======================================
+    
     # ADD PARTICIPANTS
-    # ======================================
+    
 
     st.subheader("➕ Add Participants")
 
@@ -395,7 +490,6 @@ if st.session_state.organizer_logged_in:
         "Enter new names, one per line",
         placeholder="John\nMary\nDavid"
     )
-
 
     if st.button("Add Participants"):
 
@@ -520,7 +614,6 @@ if st.session_state.organizer_logged_in:
 
         col1, col2 = st.columns(2)
 
-
         with col1:
 
             if st.button(
@@ -540,7 +633,6 @@ if st.session_state.organizer_logged_in:
                 )
 
                 st.rerun()
-
 
         with col2:
 
@@ -564,7 +656,6 @@ if st.session_state.organizer_logged_in:
 
     participants = get_all_participants()
 
-
     if not participants:
 
         st.info(
@@ -587,18 +678,15 @@ if st.session_state.organizer_logged_in:
                 [3, 2, 1]
             )
 
-
             with col1:
 
                 st.write(
                     f"**{name}**"
                 )
 
-
             with col2:
 
                 st.code(code)
-
 
             with col3:
 
@@ -621,7 +709,6 @@ if st.session_state.organizer_logged_in:
                         for n in names
                         if n != name
                     ]
-
 
                     if len(remaining_names) < 2:
 
@@ -654,9 +741,8 @@ if st.session_state.organizer_logged_in:
                         st.rerun()
 
 
-    
     # REMOVE WARNING
-    
+
 
     if (
         st.session_state.pending_change
@@ -675,7 +761,6 @@ if st.session_state.organizer_logged_in:
             f"⚠️ You are about to remove "
             f"**{change['name']}**."
         )
-
 
         if change["revealed_people"]:
 
@@ -709,13 +794,11 @@ if st.session_state.organizer_logged_in:
                 "regenerate the raffle."
             )
 
-
         st.write(
             "Do you want to continue?"
         )
 
         col1, col2 = st.columns(2)
-
 
         with col1:
 
@@ -736,7 +819,6 @@ if st.session_state.organizer_logged_in:
                 )
 
                 st.rerun()
-
 
         with col2:
 
@@ -761,7 +843,6 @@ if st.session_state.organizer_logged_in:
     )
 
     participants = get_all_participants()
-
 
     if participants:
 
@@ -789,9 +870,9 @@ if st.session_state.organizer_logged_in:
         )
 
 
-    # ======================================
+    
     # WHO HAS WHO
-    # ======================================
+    
 
     st.divider()
 
@@ -801,14 +882,12 @@ if st.session_state.organizer_logged_in:
 
     participants = get_all_participants()
 
-
     if participants:
 
         st.warning(
             "This information is private. "
             "Only the organizer should see it."
         )
-
 
         for participant in participants:
 
@@ -828,7 +907,6 @@ if st.session_state.organizer_logged_in:
 
                 status = "🔒 Not revealed"
 
-
             st.write(
                 f"**{name}** → **{recipient}** "
                 f"({status})"
@@ -841,9 +919,9 @@ if st.session_state.organizer_logged_in:
         )
 
 
-    # ======================================
+    
     # RESHUFFLE RAFFLE
-    # ======================================
+    
 
     st.divider()
 
@@ -851,25 +929,25 @@ if st.session_state.organizer_logged_in:
         "🎲 Reshuffle Raffle"
     )
 
-    st.write(
-        "Generate completely new Secret Santa "
-        "assignments for everyone."
-    )
-
     participants = get_all_participants()
-
 
     if participants:
 
-        revealed_people = [
-            row[1]
-            for row in participants
-            if row[4] == 1
-        ]
+        
+        # RESHUFFLE EVERYONE
+        
 
+        st.write(
+            "### 🎲 Reshuffle Everyone"
+        )
+
+        st.write(
+            "Give everyone a completely new "
+            "Secret Santa assignment."
+        )
 
         if st.button(
-            "🎲 Reshuffle Raffle",
+            "🎲 Reshuffle Everyone",
             type="secondary"
         ):
 
@@ -878,110 +956,78 @@ if st.session_state.organizer_logged_in:
                 for row in participants
             ]
 
+            success = save_raffle(names)
 
-            if revealed_people:
+            if success:
 
-                st.session_state.pending_change = {
+                st.success(
+                    "🎲 Everyone has been given "
+                    "a new Secret Santa!"
+                )
 
-                    "type": "reshuffle",
-
-                    "names": names,
-
-                    "revealed_people":
-                        revealed_people
-                }
+                st.info(
+                    "Everyone will need to reveal "
+                    "their new assignment again."
+                )
 
                 st.rerun()
 
             else:
 
-                save_raffle(names)
+                st.error(
+                    "Could not reshuffle the raffle."
+                )
+
+
+        
+        # RESHUFFLE UNREVEALED ONLY
+        
+
+        st.write(
+            "### 🔒 Reshuffle Unrevealed Only"
+        )
+
+        st.write(
+            "People who have already revealed "
+            "their Secret Santa will keep the "
+            "same assignment."
+        )
+
+        if st.button(
+            "🔒 Reshuffle Unrevealed Only",
+            type="secondary"
+        ):
+
+            success = reshuffle_unrevealed()
+
+            if success:
 
                 st.success(
-                    "🎲 The raffle has been reshuffled!"
+                    "🔒 The unrevealed participants "
+                    "have been reshuffled."
+                )
+
+                st.info(
+                    "Everyone who had already revealed "
+                    "their assignment was left unchanged."
                 )
 
                 st.rerun()
 
+            else:
 
-    
-    # RESHUFFLE WARNING
-    
-
-    if (
-        st.session_state.pending_change
-        and
-        st.session_state.pending_change["type"]
-        == "reshuffle"
-    ):
-
-        change = (
-            st.session_state.pending_change
-        )
-
-        st.warning(
-            "⚠️ Some participants have already "
-            "revealed their Secret Santa."
-        )
-
-        st.write(
-            "Reshuffling will give everyone a "
-            "completely new assignment."
-        )
-
-        st.write(
-            "**Their revealed assignments "
-            "will change:**"
-        )
-
-
-        for person in change[
-            "revealed_people"
-        ]:
-
-            st.write(
-                f"- {person}"
-            )
-
-
-        st.write(
-            "Do you want to continue?"
-        )
-
-        col1, col2 = st.columns(2)
-
-
-        with col1:
-
-            if st.button(
-                "Yes, Reshuffle",
-                key="confirm_reshuffle"
-            ):
-
-                save_raffle(
-                    change["names"]
+                st.error(
+                    "The unrevealed participants "
+                    "could not be reshuffled while "
+                    "keeping all revealed assignments "
+                    "unchanged."
                 )
 
-                st.session_state.pending_change = None
+    else:
 
-                st.success(
-                    "🎲 The raffle has been "
-                    "completely reshuffled!"
-                )
-
-                st.rerun()
-
-
-        with col2:
-
-            if st.button(
-                "Cancel",
-                key="cancel_reshuffle"
-            ):
-
-                st.session_state.pending_change = None
-
-                st.rerun()
+        st.info(
+            "There are no participants to reshuffle."
+        )
 
 
     
@@ -998,7 +1044,6 @@ if st.session_state.organizer_logged_in:
         "This will delete everyone and "
         "start the raffle from the beginning."
     )
-
 
     if st.button(
         "🗑️ Delete Entire Raffle",
