@@ -547,7 +547,7 @@ with st.sidebar:
 
 # PARTICIPANT REVEAL
 
-st.header("🎁 Find Your Secret Santa")
+st.header(" Find Your Secret Santa")
 
 code = st.text_input(
     "Enter your Secret Santa code",
