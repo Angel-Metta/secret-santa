@@ -497,7 +497,7 @@ if "pending_change" not in st.session_state:
 st.title("🎄 Secret Santa 2026")
 
 st.write(
-    "Digital Secret Santa for the class"
+    "Class of 2027 get your secret santa"
 )
 
 
@@ -505,7 +505,7 @@ st.write(
 
 with st.sidebar:
 
-    st.header("🎅 Organizer")
+    st.header("🎅 Admin")
 
     if not st.session_state.organizer_logged_in:
 
